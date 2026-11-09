@@ -754,8 +754,14 @@
       bTPromo(sid,gbid(sid));}
     function bTPromo(sid,brand){
       const tb=document.getElementById(sid+'-tpromo-tbody'); if(!tb) return;
-      const core=DATA.promo_combined||[], tbs=DATA.tbs_promo_combined||[];
-      // show the shelf toggle only when this brand actually sells on both shelves
+      // [V35] the combined dashboard keeps the full, unscoped promo lists, so every
+      //       filter here must be per brand: otherwise one brand's tab shows another
+      //       brand's shelf toggle and - worse - Target-funded rows leak in.
+      //       Target-initiated promos stay restricted to haruharu wonder.
+      const keep=r=>r.brand===brand&&(r.funder!=='Target'||brand==='haruharu wonder');
+      const scope=L=>(L||[]).map(w=>({week:w.week,phase:w.phase,rows:(w.rows||[]).filter(keep)}))
+                            .filter(w=>w.rows.length>0);
+      const core=scope(DATA.promo_combined), tbs=scope(DATA.tbs_promo_combined);
       const grp=document.getElementById(sid+'-pm-group');
       const both=(core.length>0&&tbs.length>0);
       if(grp) grp.style.display=both?'':'none';
@@ -766,7 +772,7 @@
         shLbl.style.display = shLbl.textContent ? '' : 'none'; }
       const card=document.getElementById(sid+'-pm-card');
       if(card) card.style.display=(core.length===0&&tbs.length===0)?'none':'';
-      const L=((bPM[sid]==='tbs')?tbs:core).filter(w=>(w.rows||[]).some(r=>r.brand===brand));
+      const L=(bPM[sid]==='tbs')?tbs:core;
       const bd=document.getElementById(sid+'-tpromo-badge');
       if(bd) bd.textContent = L.length? (L[0].week+' - '+L[L.length-1].week) : '';
       if(L.length===0){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">No promotions</td></tr>';return;}
@@ -774,7 +780,7 @@
       L.forEach(wk=>{
         if(wk.phase!==cur){cur=wk.phase;const bg=cur==='Upcoming'?'#EEF2FF':'#F9FAFB';
           h+=`<tr style="background:${bg}"><td colspan="4" style="font-weight:800;letter-spacing:.4px;font-size:11px;color:var(--muted);padding:6px 10px">${cur==='Upcoming'?'UPCOMING PROMOTIONS':'PAST PROMOTIONS'}</td></tr>`;}
-        wk.rows.filter(r=>r.brand===brand).forEach(r=>{
+        wk.rows.forEach(r=>{
           const fb = r.funder==='Target'
             ? '<span class="promo-tag" style="background:#FEF3C7;color:#92400E;font-weight:700">Target</span>'
             : '<span class="promo-tag" style="background:#E0E7FF;color:#3730A3;font-weight:700">Goodai</span>';
